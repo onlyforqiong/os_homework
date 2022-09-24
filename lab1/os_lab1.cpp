@@ -47,12 +47,12 @@ int  comp_with_priority(const void *tempa,const void *tempb) {
     pross_info* a = (pross_info*)tempa;
     pross_info* b = (pross_info*)tempb;
     if(a->pross_info_list[priority] > b->pross_info_list[priority]) {
-            return 1;
-        }else if(a->pross_info_list[priority] == b->pross_info_list[priority]) {
-            return  a->pross_info_list[process_id] >  b->pross_info_list[process_id];
-        }else {
-            return 0;
-        }
+        return 1;
+    }else if(a->pross_info_list[priority] == b->pross_info_list[priority]) {
+        return comp_fcfs(tempa,tempb);
+    }else {
+        return 0;
+    }
 }
 
 void fcfs(queue <pross_info> &pross_queue) {
@@ -325,17 +325,20 @@ void dynamic_control(queue <pross_info> &pross_queue) {
     int prepare_queue_size = 0;
 
     // cout << "here";
-    pross_info * remapped_queue = (pross_info *)malloc(sizeof(pross_info) * pross_queue.size() * 2);
+    pross_info * remapped_queue = (pross_info *)malloc(sizeof(pross_info) * pross_queue.size() * 5);
     while(!pross_queue.empty()) {
         pross_info sb = pross_queue.front();
         pross_queue.pop();
         remapped_queue[i++] = sb;
     }
     qsort(remapped_queue,size,sizeof(pross_info),comp_fcfs);
-    pross_info * prepare_queue = (pross_info *)malloc(sizeof(pross_info) *size * 2);
+    pross_info * prepare_queue = (pross_info *)malloc(sizeof(pross_info) *size * 5);
     sum_time = remapped_queue[0].pross_info_list[come_time];
     pross_id_pross = remapped_queue[0].pross_info_list[process_id];
     come_time_pross = sum_time;
+    // for(int print_i = 0; print_i < waiting_size; print_i++) {
+    //         cout <<"    come  time = " <<remapped_queue[print_i].pross_info_list[come_time] << "  pross id = " << remapped_queue[print_i].pross_info_list[process_id] <<endl;
+    //     }
     //先往缓冲队列里面填入可以填充的数据
     int temp_wait_size = waiting_size;
     for(int i = 0; i < temp_wait_size; i++) {
@@ -345,25 +348,27 @@ void dynamic_control(queue <pross_info> &pross_queue) {
             waiting_size --;
             // cout << "sbsbsbs" << "i = " << i <<endl;
         }else{
-            // cout << "i = " << i <<endl;
-            // cout << "sbsbsbs" << "i = " << i <<endl;
             remapped_queue = &remapped_queue[i];
             break;
         }
     }
     while(!(prepare_queue_size == 0 && waiting_size == 0 )) {
+        // cout << "prepare_queue_size = " << prepare_queue_size << endl;
+        // cout << "waiting_size = " << waiting_size   <<endl;      
+        // cout <<  "sum_time  " << sum_time << endl;
+        // //    cout << "sum time = " <<sum_time <<endl;
+        // for(int print_i = 0; print_i < prepare_queue_size; print_i++) {
+        //     cout <<"    come  time = " <<prepare_queue[print_i].pross_info_list[come_time] << "  pross id = " << prepare_queue[print_i].pross_info_list[process_id];
+        //     cout << " __pross priority = " << prepare_queue[print_i].pross_info_list[priority]<<endl;
+        // }
         if(prepare_queue_size != 0) {
             qsort(prepare_queue,prepare_queue_size,sizeof(pross_info),comp_with_priority);
-            cout << "sum time = " << sum_time << endl;
-             for(int print_i = 0; print_i < prepare_queue_size; print_i++) {
-                cout <<"  priority = " <<prepare_queue[print_i].pross_info_list[priority] << "  pross id = " << prepare_queue[print_i].pross_info_list[process_id] <<
-                "   remain time = " <<prepare_queue[print_i].remain_time <<"  time piece = " << prepare_queue[print_i].pross_info_list[time_piece] << endl;
-             }
             if( prepare_queue[0].remain_time <= prepare_queue[0].pross_info_list[time_piece]) {
 
                 cout << sum_order<<"/" << prepare_queue[0].pross_info_list[process_id] << "/";
-                cout << sum_time << '/' << (sum_time + prepare_queue[0].remain_time) << '/' << prepare_queue[0].pross_info_list[priority] + 3 <<endl;
+                cout << sum_time << '/' << (sum_time + prepare_queue[0].remain_time) << '/' << prepare_queue[0].pross_info_list[priority] + 3  <<endl;
                 sum_time += prepare_queue[0].remain_time ;
+                prepare_queue[0].pross_info_list[priority] += 3;
                 prepare_queue = &(prepare_queue[1]);
                 
                 for(int temp_i = 0;temp_i < prepare_queue_size - 1;temp_i++) {
@@ -389,20 +394,30 @@ void dynamic_control(queue <pross_info> &pross_queue) {
             sum_order ++;
         }else{
             sum_time ++;
-            
+                //    cout <<"sbsbsbsbs"<<endl;
         }
         int temp_wait_size = waiting_size;
-        for(int i = 0; i < temp_wait_size; i++) {
-            if(remapped_queue[i].pross_info_list[come_time] <= sum_time) {
+        for(int temp_i = 0; temp_i < temp_wait_size; temp_i++) {
+            // cout << "Temp_i = " << temp_i << endl;
+            if(remapped_queue[temp_i].pross_info_list[come_time] < sum_time) {
                 // cout << "pushing id = " << remapped_queue[i].pross_info_list[process_id] << endl;;
-                prepare_queue[prepare_queue_size] =  remapped_queue[i];
+                // cout <<"sbsbsbsbs"<<endl;
+                prepare_queue[prepare_queue_size] =  remapped_queue[temp_i];
+                prepare_queue[prepare_queue_size].pross_info_list[priority]--;
+                if(prepare_queue[prepare_queue_size].pross_info_list[priority] < 0) {
+                    prepare_queue[prepare_queue_size].pross_info_list[priority] = 0;
+                }
                 prepare_queue_size ++;
                 waiting_size --;
                 // cout << "sbsbsbs" << "i = " << i <<endl;
+            }else if(remapped_queue[temp_i].pross_info_list[come_time] == sum_time){
+                prepare_queue[prepare_queue_size] =  remapped_queue[temp_i];
+                prepare_queue_size ++;
+                waiting_size --;
             }else{
                 // cout << "i = " << i <<endl;
                 // cout << "sbsbsbs" << "i = " << i <<endl;
-                remapped_queue = &remapped_queue[i];
+                remapped_queue = &remapped_queue[temp_i];
                 break;
             }
         }
@@ -410,7 +425,8 @@ void dynamic_control(queue <pross_info> &pross_queue) {
 }
 
 int main() {
-    freopen("data_base.txt","r",stdin);
+    // freopen("osout.txt", "w", stdout); 
+    // freopen("data_base.txt","r",stdin);
     queue <pross_info> pross_queue;
     int choice = 0;
     int process_num = 0;
