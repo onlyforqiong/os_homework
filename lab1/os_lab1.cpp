@@ -43,6 +43,18 @@ int comp_fcfs(const void *tempa,const void  *tempb) {
         }
     }
 
+int  comp_with_priority(const void *tempa,const void *tempb) {
+    pross_info* a = (pross_info*)tempa;
+    pross_info* b = (pross_info*)tempb;
+    if(a->pross_info_list[priority] > b->pross_info_list[priority]) {
+            return 1;
+        }else if(a->pross_info_list[priority] == b->pross_info_list[priority]) {
+            return  a->pross_info_list[process_id] >  b->pross_info_list[process_id];
+        }else {
+            return 0;
+        }
+}
+
 void fcfs(queue <pross_info> &pross_queue) {
     int sum_time = 0;
     int sum_order  = 1; 
@@ -296,10 +308,109 @@ void time_piece_control(queue <pross_info> &pross_queue) {
 
     }
 }
+void dynamic_control(queue <pross_info> &pross_queue) {
+    int sum_time          = 0;
+    int sum_order         = 1; 
+    int counter           = 0;
+    int now_index         = 0;
+    int size              = pross_queue.size();
+    int waiting_size      = pross_queue.size();
+    int start_run_time          = 0;
+    // queue <pross_info> prepare_queue;
+    //1pross_queue.front().pross_info_list[come_time];
+    int i = 0;
+    int pross_id_pross    = 0;
+    int priority_pross = 0;
+    int come_time_pross   = 0;
+    int prepare_queue_size = 0;
 
+    // cout << "here";
+    pross_info * remapped_queue = (pross_info *)malloc(sizeof(pross_info) * pross_queue.size() * 2);
+    while(!pross_queue.empty()) {
+        pross_info sb = pross_queue.front();
+        pross_queue.pop();
+        remapped_queue[i++] = sb;
+    }
+    qsort(remapped_queue,size,sizeof(pross_info),comp_fcfs);
+    pross_info * prepare_queue = (pross_info *)malloc(sizeof(pross_info) *size * 2);
+    sum_time = remapped_queue[0].pross_info_list[come_time];
+    pross_id_pross = remapped_queue[0].pross_info_list[process_id];
+    come_time_pross = sum_time;
+    //先往缓冲队列里面填入可以填充的数据
+    int temp_wait_size = waiting_size;
+    for(int i = 0; i < temp_wait_size; i++) {
+        if(remapped_queue[i].pross_info_list[come_time] <= sum_time) {
+            prepare_queue[prepare_queue_size] =  remapped_queue[i];
+            prepare_queue_size ++;
+            waiting_size --;
+            // cout << "sbsbsbs" << "i = " << i <<endl;
+        }else{
+            // cout << "i = " << i <<endl;
+            // cout << "sbsbsbs" << "i = " << i <<endl;
+            remapped_queue = &remapped_queue[i];
+            break;
+        }
+    }
+    while(!(prepare_queue_size == 0 && waiting_size == 0 )) {
+        if(prepare_queue_size != 0) {
+            qsort(prepare_queue,prepare_queue_size,sizeof(pross_info),comp_with_priority);
+            cout << "sum time = " << sum_time << endl;
+             for(int print_i = 0; print_i < prepare_queue_size; print_i++) {
+                cout <<"  priority = " <<prepare_queue[print_i].pross_info_list[priority] << "  pross id = " << prepare_queue[print_i].pross_info_list[process_id] <<
+                "   remain time = " <<prepare_queue[print_i].remain_time <<"  time piece = " << prepare_queue[print_i].pross_info_list[time_piece] << endl;
+             }
+            if( prepare_queue[0].remain_time <= prepare_queue[0].pross_info_list[time_piece]) {
+
+                cout << sum_order<<"/" << prepare_queue[0].pross_info_list[process_id] << "/";
+                cout << sum_time << '/' << (sum_time + prepare_queue[0].remain_time) << '/' << prepare_queue[0].pross_info_list[priority] + 3 <<endl;
+                sum_time += prepare_queue[0].remain_time ;
+                prepare_queue = &(prepare_queue[1]);
+                
+                for(int temp_i = 0;temp_i < prepare_queue_size - 1;temp_i++) {
+                    prepare_queue[temp_i].pross_info_list[priority]--;
+                    if(prepare_queue[temp_i].pross_info_list[priority] < 0) {
+                        prepare_queue[temp_i].pross_info_list[priority] = 0;
+                    }
+                } 
+                prepare_queue_size --;
+            }else {
+                prepare_queue[0].remain_time = prepare_queue[0].remain_time - prepare_queue[0].pross_info_list[time_piece];
+                cout << sum_order<<"/" << prepare_queue[0].pross_info_list[process_id] << "/";
+                cout << sum_time << '/' << ( sum_time + prepare_queue[0].pross_info_list[time_piece] ) << '/' << prepare_queue[0].pross_info_list[priority] + 3 <<endl;
+                sum_time += prepare_queue[0].pross_info_list[time_piece];
+                prepare_queue[0].pross_info_list[priority]+=3;
+                for(int temp_i = 1;temp_i < prepare_queue_size ;temp_i++) {
+                    prepare_queue[temp_i].pross_info_list[priority]--;
+                    if(prepare_queue[temp_i].pross_info_list[priority] < 0) {
+                        prepare_queue[temp_i].pross_info_list[priority] = 0;
+                    }
+                } 
+            }
+            sum_order ++;
+        }else{
+            sum_time ++;
+            
+        }
+        int temp_wait_size = waiting_size;
+        for(int i = 0; i < temp_wait_size; i++) {
+            if(remapped_queue[i].pross_info_list[come_time] <= sum_time) {
+                // cout << "pushing id = " << remapped_queue[i].pross_info_list[process_id] << endl;;
+                prepare_queue[prepare_queue_size] =  remapped_queue[i];
+                prepare_queue_size ++;
+                waiting_size --;
+                // cout << "sbsbsbs" << "i = " << i <<endl;
+            }else{
+                // cout << "i = " << i <<endl;
+                // cout << "sbsbsbs" << "i = " << i <<endl;
+                remapped_queue = &remapped_queue[i];
+                break;
+            }
+        }
+    }
+}
 
 int main() {
-    // freopen("data_base.txt","r",stdin);
+    freopen("data_base.txt","r",stdin);
     queue <pross_info> pross_queue;
     int choice = 0;
     int process_num = 0;
@@ -324,6 +435,8 @@ int main() {
         SJF_RACE(pross_queue);
     case 4:
         time_piece_control(pross_queue);
+    case 5:
+        dynamic_control(pross_queue);
     default:
         break;
     }
