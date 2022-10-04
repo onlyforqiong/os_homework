@@ -3,7 +3,7 @@ using namespace std;
 
 #define input_length 5
 
-enum sbhnm {
+enum pross_infoEnum {
         process_id = 0,
         come_time,
         run_time,
