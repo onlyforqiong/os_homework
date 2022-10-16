@@ -20,17 +20,27 @@ HANDLE book;//互斥访问信号量
 HANDLE wrt;//保证每次只有一个写者进行写操作，当写者的数量writercount等于0的时候，则证明此时没有没有读者了,释放信号量book
 HANDLE mutex;//避免写者同时与多个读者进行竞争，读者中信号量RWMutex比mutex3先释放，则一旦有写者，写者可马上获得资源
 
-struct thread_info {
+class thread_info {
+public:
 	int id;		      //线程序号
 	char entity;      //线程类别(判断是读者线程还是写者线程)
 	double delay;		 //线程延迟时间
 	double lastTime;	 //线程读写操作时间
+	void show_all_things() {
+		cout << "thread id ->" << id << " entity -> " << entity << " delay ->" << delay <<" lastTime -> " << lastTime << endl;
+	}
+	thread_info(ifstream & inFile) {
+		inFile >> id;
+		inFile >> entity;
+		inFile >> delay;
+		inFile >> lastTime;
+		show_all_things();
+	}
 };
 /*****************/
 //读者优先
 //进程管理-读者线程
-void rp_threadReader(void *p)
-{
+void rp_threadReader(void *p) {
 	DWORD m_delay;                   //延迟时间
 	DWORD m_persist;                 //读文件持续时间
 	int m_serial;                    //线程序号
@@ -42,11 +52,15 @@ void rp_threadReader(void *p)
 
 	printf("读者进程%d申请读文件.\n", m_serial);
 	//cout << "读者进程"<< m_serial<<"申请读文件." << endl;
-
-	WaitForSingleObject(rc_mutex, -1);//对readercount互斥访问
-	if (readercount == 0)WaitForSingleObject(book, -1);//第一位读者申请书
+	// 对readercount 进行互斥访问
+	WaitForSingleObject(rc_mutex, -1);
+	if (readercount == 0) {
+		WaitForSingleObject(book, -1);//第一位读者申请书
+	}
 	readercount++;
-	ReleaseSemaphore(rc_mutex, 1, NULL);//释放互斥信号量rc_mutex
+
+	//释放掉互斥信号量rc_mutex
+	ReleaseSemaphore(rc_mutex, 1, NULL);
 
 	printf("读者进程%d开始读文件.\n", m_serial);
 	Sleep(m_persist);
@@ -54,7 +68,9 @@ void rp_threadReader(void *p)
 
 	WaitForSingleObject(rc_mutex, -1);//修改readercount
 	readercount--;//读者读完
-	if (readercount == 0)ReleaseSemaphore(book, 1, NULL);//释放书籍，写者可写
+	if (readercount == 0)  {
+		ReleaseSemaphore(book, 1, NULL);//释放书籍，写者可写
+	}
 	ReleaseSemaphore(rc_mutex, 1, NULL);//释放互斥信号量rc_mutex
 }
 /*****************/
@@ -79,6 +95,7 @@ void rp_threadWriter(void *p)
 	ReleaseSemaphore(book, 1, NULL);//释放资源
 }
 //读者优先
+
 void ReaderPriority(char *file)
 {
 	DWORD n_thread = 0;           //线程数目
@@ -90,7 +107,7 @@ void ReaderPriority(char *file)
 	book = CreateSemaphore(NULL, 1, 1, NULL);//书籍互斥访问信号量，初值为1,最大值为1
 
 	HANDLE h_Thread[MAX_THREAD_NUM];//线程句柄,线程对象的数组
-	thread_info thread_info[MAX_THREAD_NUM];
+	thread_info *_thread_info = (thread_info *)malloc(sizeof(thread_info) * MAX_THREAD_NUM );
 
 	int id = 0;
 	readercount = 0;               //初始化readcount
@@ -100,23 +117,22 @@ void ReaderPriority(char *file)
 	while (inFile)
 	{
 		//读入每一个读者,写者的信息
-		inFile >> thread_info[n_thread].id;
-		inFile >> thread_info[n_thread].entity;
-		inFile >> thread_info[n_thread].delay;
-		inFile >> thread_info[n_thread++].lastTime;
+		_thread_info[n_thread] = *(new  thread_info(inFile));
+		
+		n_thread++;
 		inFile.get();
 	}
 	for (int i = 0; i<(int)(n_thread); i++)
 	{
-		if (thread_info[i].entity == READER || thread_info[i].entity == 'r')
+		if (_thread_info[i].entity == READER || _thread_info[i].entity == 'r')
 		{
 			//创建读者进程
-			h_Thread[i] = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)(rp_threadReader), &thread_info[i], 0, &thread_ID);
+			h_Thread[i] = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)(rp_threadReader), &_thread_info[i], 0, &thread_ID);
 		}
 		else
 		{
 			//创建写线程
-			h_Thread[i] = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)(rp_threadWriter), &thread_info[i], 0, &thread_ID);
+			h_Thread[i] = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)(rp_threadWriter), &_thread_info[i], 0, &thread_ID);
 		}
 	}
 	//等待子线程结束
@@ -154,9 +170,11 @@ void wp_threadReader(void *p) {
 	ReleaseSemaphore(book, 1, NULL);//释放互斥信号量book
 	ReleaseSemaphore(mutex, 1, NULL);//释放互斥信号量mutex
 									 /* reading is performed */
-	printf("读者进程%d开始读文件.\n", m_serial);
+	cout <<"读者进程" << m_serial << "开始读文件"<<endl;
+
 	Sleep(m_persist);
-	printf("读者进程%d完成读文件.\n", m_serial);
+	cout <<"读者进程" << m_serial << "完成读文件"<<endl;
+
 	WaitForSingleObject(rc2_mutex, -1);//修改readercount
 	readercount--;//读者读完
 	if (readercount == 0)ReleaseSemaphore(wrt, 1, NULL);//释放资源，写者可写
@@ -183,9 +201,9 @@ void wp_threadWriter(void *p) {
 
 	WaitForSingleObject(wrt, -1);
 	/*write is performed*/
-	printf("写者进程%d开始写文件.\n", m_serial);
+	cout <<"写者进程" << m_serial << "开始写文件"<<endl;
 	Sleep(m_persist);
-	printf("写者进程%d完成写文件.\n", m_serial);
+	cout <<"写者进程" << m_serial << "完成写文件"<<endl;
 	ReleaseSemaphore(wrt, 1, NULL);//释放资源
 
 	WaitForSingleObject(wc_mutex, -1);//对writercount互斥访问
@@ -207,7 +225,7 @@ void WriterPriority(char *file) {
 	book = CreateSemaphore(NULL, 1, 1, NULL);//书籍互斥访问信号量，初值为1,最大值为1
 
 	HANDLE h_Thread[MAX_THREAD_NUM];//线程句柄,线程对象的数组
-	thread_info thread_info[MAX_THREAD_NUM];
+	thread_info *_thread_info = (thread_info *)malloc(sizeof(thread_info) * MAX_THREAD_NUM );
 
 	int id = 0;
 	readercount = 0;               //初始化readcount
@@ -215,26 +233,25 @@ void WriterPriority(char *file) {
 	ifstream inFile;
 	inFile.open(file);
 	cout << "写者优先:" << endl;
-	while (inFile)
+		while (inFile)
 	{
 		//读入每一个读者,写者的信息
-		inFile >> thread_info[n_thread].id;
-		inFile >> thread_info[n_thread].entity;
-		inFile >> thread_info[n_thread].delay;
-		inFile >> thread_info[n_thread++].lastTime;
+		_thread_info[n_thread] = *(new  thread_info(inFile));
+		
+		n_thread++;
 		inFile.get();
 	}
 	for (int i = 0; i<(int)(n_thread); i++)
 	{
-		if (thread_info[i].entity == READER || thread_info[i].entity == 'r')
+		if (_thread_info[i].entity == READER || _thread_info[i].entity == 'r')
 		{
 			//创建读者进程
-			h_Thread[i] = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)(wp_threadReader), &thread_info[i], 0, &thread_ID);
+			h_Thread[i] = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)(wp_threadReader), &_thread_info[i], 0, &thread_ID);
 		}
 		else
 		{
 			//创建写线程
-			h_Thread[i] = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)(wp_threadWriter), &thread_info[i], 0, &thread_ID);
+			h_Thread[i] = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)(wp_threadWriter), &_thread_info[i], 0, &thread_ID);
 		}
 	}
 	//等待子线程结束
@@ -253,19 +270,26 @@ void WriterPriority(char *file) {
 int main()
 {
 	char choice;
-	cout << "    欢迎进入读者写者模拟程序    " << endl;
 	while (true)
 	{
 		//打印提示信息
-		cout << "     请输入你的选择       " << endl;
+		cout << "     请输入你的线程调度算法选择       " << endl;
 		cout << "     1、读者优先" << endl;
 		cout << "     2、写者优先" << endl;
 		cout << "     3、退出程序" << endl;
 		cout << endl;
 		//如果输入信息不正确，继续输入
+		int enter_wrong = 0;
 		do {
 			choice = (char)getchar();
-		} while (choice != '1'&&choice != '2'&&choice != '3');
+			if(choice != '1'&&choice != '2'&&choice != '3') {
+				enter_wrong = 1;
+				cout << "enter wrong , please enter 1 2 or 3"<<endl;
+			}else{
+				enter_wrong = 0;
+			}
+
+		} while (enter_wrong == 1);
 
 		system("cls");
 		//选择1，读者优先
@@ -281,7 +305,8 @@ int main()
 		//结束
 		printf("\nPress Any Key to Coutinue");
 		getchar();
-		system("cls");
+		// system("cls");
 	}
 	return 0;
 }
+
