@@ -21,8 +21,9 @@ $(BINARY):$(CSRCS)
 	@echo $(CSRCS)
 	@echo $(BUILD_DIR)
 	@echo  +x cc $<
-	rd /S /Q $(BUILD_DIR)
+	-rd /S /Q $(BUILD_DIR)
 	@mkdir  $(BUILD_DIR)
+	-copy  thread.txt $(BUILD_DIR)
 	$(CXX) $(CFLAGS)  $< -o $(BINARY)
 
 run : $(BINARY)
